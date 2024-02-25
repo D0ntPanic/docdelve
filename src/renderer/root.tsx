@@ -121,9 +121,7 @@ export default function Root() {
         <TitleBar chestTag={chestTag} pagePath={pagePath} pageTitle={title} onNavigate={onNavigate}/>
         <div id="windowContent">
             <Split initialPrimarySize="200px" minPrimarySize="150px" minSecondarySize="250px" splitterSize="4px">
-                <div id="sidebar">
-                    <Sidebar pagePath={pagePath} onNavigate={onNavigate}/>
-                </div>
+                <Sidebar pagePath={pagePath} onNavigate={onNavigate}/>
                 <div id="contentContainer">
                     <webview key="content" className="content hidden empty" src="./blank.html" ref={content}/>
                 </div>

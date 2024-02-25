@@ -167,16 +167,40 @@ app.whenReady().then(() => {
     protocol.handle('docs', (request) => {
         const url = new URL(request.url);
         let contents: Buffer, status: number;
+        let type: string | null = null;
         try {
             // Try to read the requested file from the documentation chest
             let path = url.pathname;
             contents = db.read(url.host, path, (nativeTheme.shouldUseDarkColors ? 'Dark' : 'Light') as Theme);
             status = 200;
+
+            // Set correct MIME type for some common extensions. This is required to load some types of files.
+            if (url.pathname.toLowerCase().endsWith('.svg')) {
+                type = 'image/svg+xml';
+            } else if (url.pathname.toLowerCase().endsWith('.png')) {
+                type = 'image/png';
+            } else if (url.pathname.toLowerCase().endsWith('.jpg') || url.pathname.toLowerCase().endsWith('.jpeg')) {
+                type = 'image/jpeg';
+            } else if (url.pathname.toLowerCase().endsWith('.html')) {
+                type = 'text/html';
+            } else if (url.pathname.toLowerCase().endsWith('.css')) {
+                type = 'text/css';
+            } else if (url.pathname.toLowerCase().endsWith('.js')) {
+                type = 'text/javascript';
+            } else if (url.pathname.toLowerCase().endsWith('.json')) {
+                type = 'application/json';
+            } else if (url.pathname.toLowerCase().endsWith('.txt')) {
+                type = 'text/plain';
+            }
         } catch (error: any) {
             // On error, return a 404 status and a simple page showing the error message
             contents = Buffer.from('<!DOCTYPE html>\n<html lang="en"><h1>Error</h1><p>Error while fetching ' +
                 request.url + '</p><p>' + error.message + '</p></html>');
+            type = "text/html";
             status = 404;
+        }
+        if (type !== null) {
+            return new Response(contents, {status: status, headers: {'Content-Type': type}});
         }
         return new Response(contents, {status: status})
     })

@@ -1,4 +1,4 @@
-workspace = { members = ["generators/qt", "tools/chest"] }
+workspace = { members = ["generators/qt", "generators/rust", "tools/chest"] }
 
 [package]
 name = "docdelve-ffi"

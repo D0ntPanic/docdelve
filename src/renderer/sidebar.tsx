@@ -102,7 +102,11 @@ export default function Sidebar({pagePath, onNavigate}: {
     const contentRef = useRef<HTMLDivElement>(null)
 
     if (pagePath === null) {
-        return <div id="sidebarContent"><SidebarEmpty/></div>
+        return <div id="sidebarContainer" className="empty" ref={contentRef}>
+            <div id="sidebarContent">
+                <SidebarEmpty/>
+            </div>
+        </div>
     }
 
     if (pagePath != items.path) {
@@ -177,7 +181,11 @@ export default function Sidebar({pagePath, onNavigate}: {
     })
 
     if (elements.length === 0) {
-        elements.push(<SidebarEmpty/>)
+        return <div id="sidebarContainer" className="empty" ref={contentRef}>
+            <div id="sidebarContent">
+                <SidebarEmpty/>
+            </div>
+        </div>
     }
 
     return <div id="sidebarContainer" ref={contentRef}>
