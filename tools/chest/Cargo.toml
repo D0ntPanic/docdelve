@@ -1,0 +1,9 @@
+[package]
+name = "docdelve-chest"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+docdelve = { path = "../../lib" }
+anyhow = "1.0"
+clap = { version = "4.4", features = ["derive"] }

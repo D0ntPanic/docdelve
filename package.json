@@ -1,0 +1,65 @@
+{
+  "name": "docdelve",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./out/main/main.js",
+  "license": "MIT",
+  "author": "Rusty Wagner",
+  "homepage": "https://docdelve.app",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/D0ntPanic/docdelve.git"
+  },
+  "scripts": {
+    "app:dir": "electron-builder --dir",
+    "app:dist": "electron-builder",
+    "build": "napi build --release --dts docdelve_ffi.d.ts && electron-vite build",
+    "build:debug": "napi build --dts docdelve_ffi.d.ts && electron-vite build",
+    "watch": "tsc -w",
+    "start": "electron-vite preview",
+    "dev": "electron-vite dev"
+  },
+  "dependencies": {
+    "@electron-toolkit/preload": "^3.0.0",
+    "@electron-toolkit/utils": "^3.0.0"
+  },
+  "devDependencies": {
+    "@electron-toolkit/tsconfig": "^1.0.1",
+    "@types/node": "^18.19.14",
+    "@types/react": "^18.2.55",
+    "@types/react-dom": "^18.2.18",
+    "@vitejs/plugin-react": "^4.2.1",
+    "@napi-rs/cli": "^2.18",
+    "electron": "^28.2.1",
+    "electron-vite": "^2.0.0",
+    "electron-builder": "^24.9.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.12",
+    "@geoffcox/react-splitter": "^2.1.2"
+  },
+  "napi": {
+    "name": "docdelve_ffi"
+  },
+  "build": {
+    "appId": "app.docdelve.docdelve",
+    "productName": "Doc Delve",
+    "files": [
+      "docdelve_ffi.node",
+      "out/**/*",
+      "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
+      "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
+      "!**/node_modules/*.d.ts",
+      "!**/node_modules/.bin",
+      "images/*",
+      "!images/*.afdesign",
+      "!images/*.icns"
+    ],
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "darkModeSupport": true,
+      "icon": "images/docdelve.icns"
+    }
+  }
+}

@@ -1,0 +1,18 @@
+workspace = { members = ["generators/qt", "tools/chest"] }
+
+[package]
+name = "docdelve-ffi"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+docdelve = { path = "lib" }
+anyhow = "1.0"
+napi = "2.15"
+napi-derive = "2.15"
+
+[build-dependencies]
+napi-build = "2.1"

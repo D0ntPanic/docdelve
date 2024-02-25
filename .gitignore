@@ -1,0 +1,11 @@
+target/
+Cargo.lock
+.vscode/
+.idea/
+node_modules/
+out/
+dist/
+docdelve_ffi.node
+docdelve_ffi.d.ts
+.DS_Store
+*.ddchest

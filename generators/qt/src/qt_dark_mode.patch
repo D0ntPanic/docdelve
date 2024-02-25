@@ -1,0 +1,40 @@
+diff --git a/doc/global/template/style/offline-dark.css b/doc/global/template/style/offline-dark.css
+index 559811b5295..78c807f4713 100644
+--- a/doc/global/template/style/offline-dark.css
++++ b/doc/global/template/style/offline-dark.css
+@@ -109,7 +109,7 @@ a[href*="https://"]::before {
+ }
+ 
+ .flags:target {
+-    background-color: #FFFFD6;
++    background-color: #545556;
+ }
+ 
+ /*
+@@ -341,7 +341,7 @@ h2, p.h2 {
+ }
+ 
+ h2:target {
+-    background-color: #F2F3D4;
++    background-color: #545556;
+ }
+ 
+ h3 {
+@@ -376,7 +376,7 @@ h3.fn code {
+     float: right;
+ }
+ h3.fn:target {
+-    background-color: #F6F6D6;
++    background-color: #545556;
+ }
+ 
+ .name {
+@@ -427,7 +427,7 @@ table, pre, .LegaleseLeft {
+  }
+ 
+  table tr:target {
+-     background-color: #F6F6D6;
++     background-color: #545556;
+  }
+ 
+  table thead {

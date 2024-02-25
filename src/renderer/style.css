@@ -1,0 +1,360 @@
+:root {
+    --search-box-width: 400px;
+    --search-results-width: 400px;
+    --search-results-max-height: 400px;
+    --fallback-title-bar-height: 52px;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --text-color: #e0e0e0;
+        --alt-text-color: #b8b8b8;
+        --faded-text-color: #808080;
+        --sidebar-background: #242424;
+        --content-background: #181818;
+        --input-background: #444444;
+        --border-color: #585858;
+        --focus-color: #5080b8;
+        --active-title-bar-background: #383838;
+        --inactive-title-bar-background: #282828;
+        --search-results-background: #343434;
+        --search-results-alt-background: #323232;
+        --search-results-separator: #3c3c3c;
+        --panel-separator-color: #000000;
+        --selection-background-color: #385880;
+        --selection-hover-background-color: #ffffff20;
+        --selection-text-color: #000000;
+        --chest-tag-background: #b85050;
+        --chest-tag-border-color: #dc6060;
+        --current-chest-tag-background: #a04444;
+        --current-chest-tag-border-color: #c45656;
+        --sidebar-header-border-color: #707070;
+    }
+}
+
+@media (prefers-color-scheme: light) {
+    :root {
+        --text-color: #000000;
+        --alt-text-color: #505050;
+        --faded-text-color: #808080;
+        --sidebar-background: #e8e8e8;
+        --content-background: #ffffff;
+        --input-background: #e8e8e8;
+        --border-color: #d0d0d0;
+        --focus-color: #68a4ec;
+        --active-title-bar-background: #f8f8f8;
+        --inactive-title-bar-background: #e0e0e0;
+        --search-results-background: #f0f0f0;
+        --search-results-alt-background: #ececec;
+        --search-results-separator: #e8e8e8;
+        --panel-separator-color: #c0c0c0;
+        --selection-background-color: #8cbeff;
+        --selection-hover-background-color: #00000028;
+        --selection-text-color: #ffffff;
+        --chest-tag-background: #fd6f6f;
+        --chest-tag-border-color: #da6060;
+        --current-chest-tag-background: #ff8888;
+        --current-chest-tag-border-color: #ff7a7a;
+    }
+}
+
+.draggable {
+    -webkit-app-region: drag;
+}
+
+.nonDraggable {
+    -webkit-app-region: no-drag;
+}
+
+body {
+    margin: 0;
+    font-family: 'system-ui';
+    font-size: 13px;
+    color: var(--text-color);
+    background-color: var(--sidebar-background);
+}
+
+body.macos {
+    background-color: #00000000;
+}
+
+input {
+    background-color: var(--input-background);
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+    padding: 4px;
+}
+
+input:focus {
+    border-color: var(--focus-color);
+    outline: solid 1px var(--focus-color);
+}
+
+#titleBar {
+    position: absolute;
+    top: env(titlebar-area-y, 0);
+    height: env(titlebar-area-height, var(--fallback-title-bar-height));
+    width: 100%;
+    background-color: var(--active-title-bar-background);
+}
+
+#titleBar.inactive {
+    background-color: var(--inactive-title-bar-background);
+}
+
+#titleBarContent {
+    position: absolute;
+    top: 0;
+    display: flex;
+    user-select: none;
+    height: 100%;
+}
+
+body #titleBarContent {
+    left: env(titlebar-area-x, 0);
+    width: env(titlebar-area-width, 100%);
+}
+
+body.macos #titleBarContent {
+    left: 92px;
+    width: calc(100% - 92px);
+}
+
+#windowTitle {
+    margin: auto 8px auto 0;
+    text-align: left;
+    width: 100%;
+    overflow-x: hidden;
+    max-width: 100%;
+    mask: linear-gradient(to right,
+    rgba(0, 0, 0, 1) 0, rgba(0, 0, 0, 1) 90%,
+    rgba(0, 0, 0, 0) 95%, rgba(0, 0, 0, 0) 0
+    ) 100% 50% / 100% 100% repeat-y;
+}
+
+.windowTitleText {
+    color: var(--text-color);
+    font-weight: bold;
+    margin: 3px 0;
+}
+
+#titleBarCurrentPath {
+    margin: 3px 0;
+    white-space: nowrap;
+}
+
+.currentChestTag {
+    font-size: 11px;
+    background-color: var(--current-chest-tag-background);
+    border: 1px solid var(--current-chest-tag-border-color);
+    border-radius: 6px;
+    color: var(--alt-text-color);
+    padding: 1px 4px;
+    margin: 2px 0;
+}
+
+.currentChestPathElement {
+    font-size: 11px;
+    color: var(--alt-text-color);
+}
+
+.currentChestPathElementSeparator {
+    font-size: 11px;
+    color: var(--alt-text-color);
+}
+
+#searchArea {
+    margin: 0;
+}
+
+#searchBox {
+    margin: 12px 12px;
+    left: 0;
+    right: 0;
+    width: var(--search-box-width);
+    height: 18px;
+}
+
+#searchResults {
+    position: absolute;
+    z-index: 1;
+    background-color: var(--search-results-background);
+    border: 1px solid var(--border-color);
+    -webkit-box-shadow: 1px 1px 8px black;
+    margin: -6px 12px 0 0;
+    padding: 0;
+    right: 0;
+    width: calc(var(--search-results-width) + 8px);
+    max-height: var(--search-results-max-height);
+    overflow-y: auto;
+}
+
+#searchResultsList:focus {
+    border: none;
+    outline: none;
+}
+
+#searchResultsList:focus-visible {
+    border: none;
+    outline: none;
+}
+
+.searchResult {
+    padding: 4px 8px;
+    width: calc(100% - 16px);
+    background-color: var(--search-results-background);
+    cursor: pointer;
+}
+
+.searchResult:hover {
+    background-color: var(--selection-hover-background-color);
+}
+
+.searchResult.oddRow {
+    background-color: var(--search-results-alt-background);
+}
+
+.searchResult.oddRow:hover {
+    background-color: var(--selection-hover-background-color);
+}
+
+.searchResult.lastItem {
+    border-bottom: 1px solid var(--search-results-separator);
+}
+
+.searchResult.current {
+    background-color: var(--selection-background-color);
+}
+
+.searchResult.current:hover {
+    background-color: var(--selection-background-color);
+}
+
+.searchResultName {
+    font-size: 15px;
+    color: var(--text-color);
+}
+
+.searchResultDeclaration {
+    padding-left: 60px;
+    text-indent: -40px;
+    font-size: 12px;
+    color: var(--alt-text-color);
+}
+
+.chestTag {
+    font-size: 11px;
+    background-color: var(--chest-tag-background);
+    border: 1px solid var(--chest-tag-border-color);
+    border-radius: 6px;
+    color: var(--text-color);
+    padding: 1px 4px;
+    margin: 2px 0;
+}
+
+.chestPathElement {
+    font-size: 11px;
+    color: var(--faded-text-color);
+}
+
+.chestPathElementSeparator {
+    font-size: 11px;
+    color: var(--faded-text-color);
+}
+
+#windowContent {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: env(titlebar-area-height, var(--fallback-title-bar-height));
+    overflow-x: clip;
+    overflow-y: clip;
+    border-top: 1px solid var(--panel-separator-color)
+}
+
+.faded {
+    color: var(--faded-text-color);
+    font-style: italic;
+}
+
+#contentContainer {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    padding: 0;
+    margin: 0;
+    background-color: var(--content-background);
+}
+
+.content {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    padding: 0;
+    margin: 0;
+}
+
+.hidden {
+    visibility: hidden;
+    display: none;
+}
+
+.line {
+    --default-splitter-line-color: transparent;
+    --default-splitter-line-hover-color: transparent;
+}
+
+.react-split .line {
+    border-right: 1px solid var(--panel-separator-color);
+}
+
+#sidebar {
+    width: 100%;
+    height: 100%;
+}
+
+#sidebarContainer {
+    width: calc(100% - 8px);
+    height: 100%;
+    margin: 0;
+    overflow-y: auto;
+}
+
+#sidebarContent {
+    margin: 8px 0 8px 6px;
+}
+
+.sidebarItem {
+    padding: 2px 0 2px 6px;
+    color: var(--alt-text-color);
+    cursor: pointer;
+}
+
+.sidebarItem:hover {
+    background-color: var(--selection-hover-background-color)
+}
+
+.sidebarHeaderContainer {
+    padding: 0 6px 0 6px;
+}
+
+.sidebarHeader {
+    color: var(--text-color);
+    font-weight: bold;
+    font-size: 15px;
+    padding: 4px 0 4px 0;
+    margin: 0 0 8px 0;
+    border-bottom: 1px solid var(--sidebar-header-border-color);
+}
+
+.sidebarSectionEnd {
+    padding: 8px;
+}
+
+.sidebarEmpty {
+    color: var(--faded-text-color);
+    font-style: italic;
+    padding: 2px 0 2px 6px;
+}
