@@ -13,10 +13,10 @@ pub struct Database(RwLock<docdelve::db::Database>);
 
 #[napi(object)]
 pub struct ChestContents {
-    pub name: String,
-    pub identifier: String,
-    pub items: Vec<ChestPathElement>,
     pub category_tag: String,
+    pub identifier: String,
+    pub category_tag_aliases: Vec<String>,
+    pub items: Vec<ChestPathElement>,
     pub extension_module: Option<String>,
     pub version: String,
     pub start_url: String,
@@ -51,6 +51,7 @@ pub struct ChestItem {
     pub object_type: Option<ObjectType>,
     pub bases: Vec<ChestPath>,
     pub elements: Vec<ChestPathElement>,
+    pub page_path: Option<ChestPath>,
     pub page_contents: Vec<PageItem>,
 }
 
@@ -73,6 +74,7 @@ pub enum ChestItemType {
     Module,
     Group,
     Page,
+    PageItem,
     Object,
 }
 
@@ -220,6 +222,21 @@ impl Database {
     }
 
     #[napi]
+    pub fn item_for_path(
+        &self,
+        identifier: String,
+        url: String,
+        path: Option<ItemPath>,
+    ) -> Option<ItemPath> {
+        self.0
+            .read()
+            .unwrap()
+            .item_for_path(&identifier, &url, path.map(|path| path.into()).as_ref())
+            .as_ref()
+            .map(|path| path.into())
+    }
+
+    #[napi]
     pub fn page_for_path(
         &self,
         identifier: String,
@@ -260,10 +277,10 @@ impl Database {
 impl From<&docdelve::content::IndexedChestContents> for ChestContents {
     fn from(contents: &docdelve::content::IndexedChestContents) -> Self {
         Self {
-            name: contents.info.name.clone(),
-            identifier: contents.info.identifier.clone(),
-            items: ChestPathElement::path_elements_for_items(&contents.items()),
             category_tag: contents.info.category_tag.clone(),
+            identifier: contents.info.identifier.clone(),
+            category_tag_aliases: contents.info.category_tag_aliases.clone(),
+            items: ChestPathElement::path_elements_for_items(&contents.items()),
             extension_module: contents.info.extension_module.clone(),
             version: contents.info.version.clone(),
             start_url: contents.info.start_url.clone(),
@@ -325,6 +342,7 @@ impl From<ChestItemType> for docdelve::content::ChestPathElementType {
             ChestItemType::Module => docdelve::content::ChestPathElementType::Module,
             ChestItemType::Group => docdelve::content::ChestPathElementType::Group,
             ChestItemType::Page => docdelve::content::ChestPathElementType::Page,
+            ChestItemType::PageItem => docdelve::content::ChestPathElementType::Page,
             ChestItemType::Object => docdelve::content::ChestPathElementType::Object,
         }
     }
@@ -379,6 +397,7 @@ impl ChestItem {
                 object_type: None,
                 bases: Vec::new(),
                 elements: ChestPathElement::path_elements_for_items(&item.contents(chest)),
+                page_path: None,
                 page_contents: Vec::new(),
             },
             docdelve::content::IndexedChestItemData::Group(group) => ChestItem {
@@ -390,18 +409,32 @@ impl ChestItem {
                 object_type: None,
                 bases: Vec::new(),
                 elements: ChestPathElement::path_elements_for_items(&item.contents(chest)),
+                page_path: None,
                 page_contents: Vec::new(),
             },
             docdelve::content::IndexedChestItemData::Page(page) => ChestItem {
                 item_type: ChestItemType::Page,
-                name: page.title.clone(),
+                name: page.info.title.clone(),
                 full_name: None,
                 declaration: None,
-                url: Some(page.url.clone()),
+                url: Some(page.info.url.clone()),
                 object_type: None,
                 bases: Vec::new(),
                 elements: Vec::new(),
-                page_contents: page.contents.iter().map(|item| item.into()).collect(),
+                page_path: None,
+                page_contents: page.info.contents.iter().map(|item| item.into()).collect(),
+            },
+            docdelve::content::IndexedChestItemData::PageItem(item) => ChestItem {
+                item_type: ChestItemType::PageItem,
+                name: item.title.clone(),
+                full_name: None,
+                declaration: None,
+                url: item.url.clone(),
+                object_type: None,
+                bases: Vec::new(),
+                elements: Vec::new(),
+                page_path: chest.path_for_id(item.page).map(|path| (&path).into()),
+                page_contents: Vec::new(),
             },
             docdelve::content::IndexedChestItemData::Object(object) => ChestItem {
                 item_type: ChestItemType::Object,
@@ -412,6 +445,7 @@ impl ChestItem {
                 object_type: Some(object.info.object_type.into()),
                 bases: object.info.bases.iter().map(|base| base.into()).collect(),
                 elements: ChestPathElement::path_elements_for_items(&item.contents(chest)),
+                page_path: None,
                 page_contents: Vec::new(),
             },
         }

@@ -24,6 +24,7 @@ export default function Root() {
     const [chestTag, setChestTag] = useState<string | null>(null)
     const [pagePath, setPagePath] = useState<ExtendedItemPath | null>(null)
     const [itemPath, setItemPath] = useState<ExtendedItemPath | null>(null)
+    const [itemHint, setItemHint] = useState<ExtendedItemPath | null>(null)
     const [title, setTitle] = useState<string>("")
     const content = useRef<HTMLWebViewElement>(null)
 
@@ -35,7 +36,7 @@ export default function Root() {
             (content.current as WebviewTag).loadURL(fullURL.toString()).then(() => null)
         }
 
-        setItemPath(path)
+        setItemHint(path)
     }
 
     useEffect(() => {
@@ -86,16 +87,22 @@ export default function Root() {
                         const path = fullPath.substring(identifierPartIdx + 1)
 
                         // Look up the chest path for the page at this URL
-                        window.api.pageForPath(identifier, path, itemPath).then((page: OptionalItemPath) => {
+                        window.api.pageForPath(identifier, path, itemHint).then((page: OptionalItemPath) => {
                             setChestTag(page.chestTag)
                             if (page.chestPath === null) {
                                 setPagePath(null)
                                 setItemPath(null)
+                                setItemHint(null)
                             } else {
-                                setPagePath({
+                                setItemPath({
                                     identifier: page.identifier,
                                     chestTag: page.chestTag,
                                     chestPath: page.chestPath
+                                })
+                                setPagePath({
+                                    identifier: page.identifier,
+                                    chestTag: page.chestTag,
+                                    chestPath: page.chestPagePath
                                 })
                             }
                         })
@@ -107,6 +114,7 @@ export default function Root() {
                     setChestTag("Home")
                     setPagePath(null)
                     setItemPath(null)
+                    setItemHint(null)
                     return;
                 }
             }
@@ -114,11 +122,12 @@ export default function Root() {
             setChestTag(null)
             setPagePath(null)
             setItemPath(null)
+            setItemHint(null)
         })
     }, [])
 
     return <>
-        <TitleBar chestTag={chestTag} pagePath={pagePath} pageTitle={title} onNavigate={onNavigate}/>
+        <TitleBar chestTag={chestTag} pagePath={itemPath} pageTitle={title} onNavigate={onNavigate}/>
         <div id="windowContent">
             <Split initialPrimarySize="200px" minPrimarySize="150px" minSecondarySize="250px" splitterSize="4px">
                 <Sidebar pagePath={pagePath} onNavigate={onNavigate}/>

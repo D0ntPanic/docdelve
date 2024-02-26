@@ -1,5 +1,5 @@
 import {useState, useRef, ReactElement} from 'react'
-import {ChestItem, PageItem} from '../../docdelve_ffi'
+import {ChestItem, PageItem, ChestPathElement} from '../../docdelve_ffi'
 
 interface CachedPathItems {
     path: ExtendedItemPath | null;
@@ -109,14 +109,17 @@ export default function Sidebar({pagePath, onNavigate}: {
         </div>
     }
 
-    if (pagePath != items.path) {
-        if (pagePath !== null) {
-            window.api.itemContentsAtPath(pagePath)
-                .then((result: ExtendedItemContents) => {
-                    setItems({path: pagePath, items: result})
-                    contentRef.current?.scroll(0, 0)
-                })
-        }
+    if (items.path === null || pagePath.identifier !== items.path.identifier ||
+        pagePath.chestPath.elements.length != items.path.chestPath.elements.length ||
+        !pagePath.chestPath.elements.every((element: ChestPathElement, index: number) => {
+            return element.elementType === items.path!.chestPath.elements[index].elementType &&
+                element.name === items.path!.chestPath.elements[index].name
+        })) {
+        window.api.itemContentsAtPath(pagePath)
+            .then((result: ExtendedItemContents) => {
+                setItems({path: pagePath, items: result})
+                contentRef.current?.scroll(0, 0)
+            })
     }
 
     let itemsByType: Map<string, Array<ChestItem>> = new Map();

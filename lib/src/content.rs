@@ -19,9 +19,9 @@ const MIN_SEARCH_SCORE: usize = 9;
 /// Information about a chest.
 #[derive(Serialize, Deserialize)]
 pub struct ChestInfo {
-    pub name: String,
-    pub identifier: String,
     pub category_tag: String,
+    pub identifier: String,
+    pub category_tag_aliases: Vec<String>,
     pub extension_module: Option<String>,
     pub version: String,
     pub start_url: String,
@@ -46,7 +46,7 @@ pub struct IndexedChestContents {
 
 /// Reference to an item in [IndexedChestContents].
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-struct IndexedChestItemId(usize);
+pub struct IndexedChestItemId(usize);
 
 /// List of adjustments to apply for a given theme.
 #[derive(Serialize, Deserialize, Default)]
@@ -85,7 +85,8 @@ pub struct IndexedChestItem {
 pub enum IndexedChestItemData {
     Module(IndexedModule),
     Group(IndexedGroup),
-    Page(Page),
+    Page(IndexedPage),
+    PageItem(IndexedPageItem),
     Object(IndexedObject),
 }
 
@@ -135,22 +136,28 @@ pub struct IndexedGroup {
 }
 
 /// A text page contained within a chest. Also contains a table of contents.
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Page {
     pub title: String,
     pub url: String,
     pub contents: Vec<PageItem>,
 }
 
+/// A text page contained within a chest in indexed form. Also contains a table of contents.
+pub struct IndexedPage {
+    pub info: Page,
+    contents: Vec<IndexedChestItemId>,
+}
+
 /// A table of contents item for a page. May contain other items.
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub enum PageItem {
     Category(Box<PageCategory>),
     Link(PageLink),
 }
 
 /// A category within the table of contents for a page. Can contain links or other categories.
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct PageCategory {
     pub title: String,
     pub url: Option<String>,
@@ -162,6 +169,14 @@ pub struct PageCategory {
 pub struct PageLink {
     pub title: String,
     pub url: String,
+}
+
+/// An item on a page contained within a chest in indexed form.
+pub struct IndexedPageItem {
+    pub page: IndexedChestItemId,
+    pub title: String,
+    pub url: Option<String>,
+    contents: Vec<IndexedChestItemId>,
 }
 
 /// Information about an object in a chest.
@@ -257,11 +272,17 @@ struct IndexedChestSearchResult {
     pub score: usize,
 }
 
+/// List of items contained within an item.
+enum ItemContents {
+    ChestItems(Vec<ChestItem>),
+    PageItems(Vec<PageItem>),
+}
+
 impl ChestContents {
     /// Create a new empty chest.
     pub fn new(
-        name: &str,
         category_tag: &str,
+        category_tag_aliases: &[&str],
         extension_module: Option<&str>,
         version: &str,
         start_url: &str,
@@ -270,9 +291,9 @@ impl ChestContents {
     ) -> Self {
         Self {
             info: ChestInfo {
-                name: name.to_string(),
-                identifier: Uuid::new_v4().simple().to_string(),
                 category_tag: category_tag.to_string(),
+                identifier: Uuid::new_v4().simple().to_string(),
+                category_tag_aliases: category_tag_aliases.iter().map(|s| s.to_string()).collect(),
                 extension_module: extension_module.map(|s| s.to_string()),
                 version: version.to_string(),
                 start_url: start_url.to_string(),
@@ -327,22 +348,28 @@ impl ChestContents {
                         info: module.info,
                         contents: Vec::new(),
                     }),
-                    module.contents,
+                    ItemContents::ChestItems(module.contents),
                 ),
                 ChestItem::Group(group) => (
                     IndexedChestItemData::Group(IndexedGroup {
                         info: group.info,
                         contents: Vec::new(),
                     }),
-                    group.contents,
+                    ItemContents::ChestItems(group.contents),
                 ),
-                ChestItem::Page(page) => (IndexedChestItemData::Page(*page), Vec::new()),
+                ChestItem::Page(page) => (
+                    IndexedChestItemData::Page(IndexedPage {
+                        info: page.as_ref().clone(),
+                        contents: Vec::new(),
+                    }),
+                    ItemContents::PageItems(page.contents),
+                ),
                 ChestItem::Object(object) => (
                     IndexedChestItemData::Object(IndexedObject {
                         info: object.info,
                         contents: Vec::new(),
                     }),
-                    object.contents,
+                    ItemContents::ChestItems(object.contents),
                 ),
             };
             items.push(IndexedChestItem {
@@ -353,7 +380,10 @@ impl ChestContents {
 
             path.push(id);
             let first_child = IndexedChestItemId(items.len());
-            let contents = Self::indexed_contents(contents, items, path);
+            let contents = match contents {
+                ItemContents::ChestItems(contents) => Self::indexed_contents(contents, items, path),
+                ItemContents::PageItems(contents) => Self::indexed_page(id, contents, items, path),
+            };
             let end_of_children = IndexedChestItemId(items.len());
             if let Some(item) = items.get_mut(id.0) {
                 item.children = first_child.0..end_of_children.0;
@@ -364,10 +394,67 @@ impl ChestContents {
                     IndexedChestItemData::Group(group) => {
                         group.contents = contents;
                     }
-                    IndexedChestItemData::Page(_) => (),
+                    IndexedChestItemData::Page(page) => {
+                        page.contents = contents;
+                    }
+                    IndexedChestItemData::PageItem(_) => (),
                     IndexedChestItemData::Object(object) => {
                         object.contents = contents;
                     }
+                }
+            }
+            path.pop();
+        }
+        result
+    }
+
+    /// Adds indexed items for all items in the table of contents of a page.
+    fn indexed_page(
+        page: IndexedChestItemId,
+        contents: Vec<PageItem>,
+        items: &mut Vec<IndexedChestItem>,
+        path: &mut Vec<IndexedChestItemId>,
+    ) -> Vec<IndexedChestItemId> {
+        let mut result = Vec::new();
+        for item in contents {
+            let id = IndexedChestItemId(items.len());
+            let parent_path = path.clone();
+            result.push(id);
+
+            let (data, contents) = match item {
+                PageItem::Category(category) => (
+                    IndexedChestItemData::PageItem(IndexedPageItem {
+                        page,
+                        title: category.title,
+                        url: category.url,
+                        contents: Vec::new(),
+                    }),
+                    category.contents,
+                ),
+                PageItem::Link(link) => (
+                    IndexedChestItemData::PageItem(IndexedPageItem {
+                        page,
+                        title: link.title,
+                        url: Some(link.url),
+                        contents: Vec::new(),
+                    }),
+                    Vec::new(),
+                ),
+            };
+            items.push(IndexedChestItem {
+                parent_path,
+                data,
+                children: id.0..id.0,
+            });
+
+            path.push(id);
+            let first_child = IndexedChestItemId(items.len());
+            let contents = Self::indexed_page(page, contents, items, path);
+            let end_of_children = IndexedChestItemId(items.len());
+            if let Some(item) = items.get_mut(id.0) {
+                item.children = first_child.0..end_of_children.0;
+                if let IndexedChestItemData::PageItem(page_item) = &mut item.data {
+                    page_item.contents = contents;
                 }
             }
             path.pop();
@@ -420,7 +507,7 @@ impl IndexedChestContents {
     }
 
     /// Gets the path for an item by identifier.
-    fn path_for_id(&self, id: IndexedChestItemId) -> Option<ChestPath> {
+    pub fn path_for_id(&self, id: IndexedChestItemId) -> Option<ChestPath> {
         self.get_by_id(id).map(|item| {
             let mut elements = Vec::new();
             elements.reserve(item.parent_path.len() + 1);
@@ -432,6 +519,19 @@ impl IndexedChestContents {
             elements.push(item.as_path_element());
             ChestPath { elements }
         })
+    }
+
+    /// Gets the path for a page by identifier.
+    pub fn page_path_for_id(&self, id: IndexedChestItemId) -> Option<ChestPath> {
+        self.get_by_id(id)
+            .map(|item| {
+                if let IndexedChestItemData::PageItem(page_item) = &item.data {
+                    self.path_for_id(page_item.page)
+                } else {
+                    self.path_for_id(id)
+                }
+            })
+            .flatten()
     }
 
     /// Searches a chest for items that match a string query. Search is performed within
@@ -582,8 +682,15 @@ impl IndexedChestContents {
         }
     }
 
-    /// Gets the item corresponding to the page that an item is present on.
-    pub fn page_for_path(&self, url: &str, hint_path: Option<&ChestPath>) -> Option<ChestPath> {
+    fn look_for_path<F>(
+        &self,
+        url: &str,
+        hint_path: Option<&ChestPath>,
+        path_fn: F,
+    ) -> Option<ChestPath>
+    where
+        F: Fn(IndexedChestItemId) -> Option<ChestPath>,
+    {
         // Strip off any anchors from the URL
         let url = if let Some((base, _)) = url.rsplit_once('#') {
             base
@@ -608,7 +715,7 @@ impl IndexedChestContents {
         // the deepest path will be checked first.
         if let Some(hint_path) = hint_path {
             for item_id in &possible_items {
-                if let Some(path) = self.path_for_id(*item_id) {
+                if let Some(path) = path_fn(*item_id) {
                     if path.is_parent_of(&hint_path) {
                         return Some(path);
                     }
@@ -619,8 +726,18 @@ impl IndexedChestContents {
         // Return first path in reverse sorted order as result, this will be the deepest match
         possible_items
             .first()
-            .map(|item_id| self.path_for_id(*item_id))
+            .map(|item_id| path_fn(*item_id))
             .flatten()
+    }
+
+    /// Gets the item corresponding to a URL.
+    pub fn item_for_path(&self, url: &str, hint_path: Option<&ChestPath>) -> Option<ChestPath> {
+        self.look_for_path(url, hint_path, |item_id| self.path_for_id(item_id))
+    }
+
+    /// Gets the page corresponding to a URL.
+    pub fn page_for_path(&self, url: &str, hint_path: Option<&ChestPath>) -> Option<ChestPath> {
+        self.look_for_path(url, hint_path, |item_id| self.page_path_for_id(item_id))
     }
 
     /// Recursively search a set of items for a given URL.
@@ -752,7 +869,8 @@ impl IndexedChestItem {
         match &self.data {
             IndexedChestItemData::Module(module) => &module.info.name,
             IndexedChestItemData::Group(group) => &group.info.name,
-            IndexedChestItemData::Page(page) => &page.title,
+            IndexedChestItemData::Page(page) => &page.info.title,
+            IndexedChestItemData::PageItem(item) => &item.title,
             IndexedChestItemData::Object(object) => &object.info.name,
         }
     }
@@ -762,7 +880,8 @@ impl IndexedChestItem {
         match &self.data {
             IndexedChestItemData::Module(module) => module.info.url.as_ref().map(|s| s.as_str()),
             IndexedChestItemData::Group(group) => group.info.url.as_ref().map(|s| s.as_str()),
-            IndexedChestItemData::Page(page) => Some(&page.url),
+            IndexedChestItemData::Page(page) => Some(&page.info.url),
+            IndexedChestItemData::PageItem(item) => item.url.as_ref().map(|s| s.as_str()),
             IndexedChestItemData::Object(object) => object.info.url.as_ref().map(|s| s.as_str()),
         }
     }
@@ -777,11 +896,11 @@ impl IndexedChestItem {
 
     /// List of item identifiers contained in a chest item.
     fn content_ids(&self) -> &[IndexedChestItemId] {
-        const EMPTY: &'static [IndexedChestItemId] = &[];
         match &self.data {
             IndexedChestItemData::Module(module) => &module.contents,
             IndexedChestItemData::Group(group) => &group.contents,
-            IndexedChestItemData::Page(_) => EMPTY,
+            IndexedChestItemData::Page(page) => &page.contents,
+            IndexedChestItemData::PageItem(item) => &item.contents,
             IndexedChestItemData::Object(object) => &object.contents,
         }
     }
@@ -792,6 +911,7 @@ impl IndexedChestItem {
             IndexedChestItemData::Module(_) => ChestPathElementType::Module,
             IndexedChestItemData::Group(_) => ChestPathElementType::Group,
             IndexedChestItemData::Page(_) => ChestPathElementType::Page,
+            IndexedChestItemData::PageItem(_) => ChestPathElementType::Page,
             IndexedChestItemData::Object(_) => ChestPathElementType::Object,
         }
     }

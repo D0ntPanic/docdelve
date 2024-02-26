@@ -37,10 +37,7 @@ impl QtDocumentationGenerator {
     /// Create a Qt documentation generator for the given version of Qt
     pub fn new(engine: ContainerEngine, version: &str) -> Result<Self> {
         // Validate version string
-        if !Regex::new(r"^[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?(-[a-zA-Z0-9]+)?$")
-            .unwrap()
-            .is_match(version)
-        {
+        if !Regex::new(r"^[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?(-[a-zA-Z0-9]+)?$")?.is_match(version) {
             return Err(Error::msg("Invalid Qt version"));
         }
 
@@ -166,7 +163,7 @@ impl QtDocumentationGenerator {
         Ok(Self {
             container,
             version: version.to_string(),
-            name_filter_regex: Regex::new(r"</?@[^>]*>").unwrap(),
+            name_filter_regex: Regex::new(r"</?@[^>]*>")?,
         })
     }
 
@@ -194,7 +191,7 @@ impl QtDocumentationGenerator {
         // Create the chest contents
         let mut contents = ChestContents::new(
             "Qt",
-            "qt",
+            &[],
             None,
             &self.version,
             "qtdoc/index.html",

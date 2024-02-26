@@ -126,18 +126,28 @@ appLocalAPI('search', (path: ItemPath | null, query: string,
 
 appLocalAPI('page-for-path', (identifier: string, url: string, path: ItemPath | null): OptionalItemPath => {
     const chestTag = db.tagForIdentifier(identifier)
-    let result = db.pageForPath(identifier, url, path)
+    let result = db.itemForPath(identifier, url, path)
+    let pageResult = db.pageForPath(identifier, url, path)
     if (result === null) {
         return {
             identifier: identifier,
             chestTag: chestTag,
-            chestPath: null
+            chestPath: null,
+            chestPagePath: null,
         };
+    } else if (pageResult === null || result.identifier !== pageResult.identifier) {
+        return {
+            identifier: result.identifier,
+            chestTag: chestTag,
+            chestPath: result.chestPath,
+            chestPagePath: result.chestPath
+        }
     } else {
         return {
             identifier: result.identifier,
             chestTag: chestTag,
-            chestPath: result.chestPath
+            chestPath: result.chestPath,
+            chestPagePath: pageResult.chestPath
         }
     }
 })

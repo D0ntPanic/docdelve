@@ -98,11 +98,8 @@ pub fn main() -> Result<()> {
 
 fn dump_contents(contents: &ChestContents) {
     println!(
-        "{} version {}, tag '{}', start page '{}'",
-        contents.info.name,
-        contents.info.version,
-        contents.info.category_tag,
-        contents.info.start_url
+        "{} version {}, start page '{}'",
+        contents.info.category_tag, contents.info.version, contents.info.start_url
     );
     if let Some(extension_module) = &contents.info.extension_module {
         println!("Extension module {}", extension_module);

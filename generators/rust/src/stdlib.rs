@@ -1,9 +1,10 @@
-use anyhow::Error;
-use docdelve::chest::ChestListEntry;
+use anyhow::{anyhow, Error, Result};
+use docdelve::chest::{Chest, ChestListEntry};
 use docdelve::container::{Container, ContainerEngine};
-use docdelve::content::{ChestContents, ChestItem, Page};
+use docdelve::content::{ChestContents, ChestItem, Page, PageCategory, PageItem, PageLink};
 use docdelve::progress::ProgressEvent;
 use regex::Regex;
+use scraper::{ElementRef, Html, Node, Selector};
 
 pub struct StandardLibraryDocumentationGenerator {
     container: Container,
@@ -12,12 +13,9 @@ pub struct StandardLibraryDocumentationGenerator {
 
 impl StandardLibraryDocumentationGenerator {
     /// Create a Rust standard library documentation generator for the given version of Rust
-    pub fn new(engine: ContainerEngine, version: &str) -> anyhow::Result<Self> {
+    pub fn new(engine: ContainerEngine, version: &str) -> Result<Self> {
         // Validate version string
-        if !Regex::new(r"^[0-9]+\.[0-9]+\.[0-9]+$")
-            .unwrap()
-            .is_match(version)
-        {
+        if !Regex::new(r"^[0-9]+\.[0-9]+\.[0-9]+$")?.is_match(version) {
             return Err(Error::msg("Invalid Rust version"));
         }
 
@@ -60,7 +58,7 @@ impl StandardLibraryDocumentationGenerator {
     }
 
     /// Build the Rust documentation
-    pub fn build<F>(&mut self, mut progress: F) -> anyhow::Result<()>
+    pub fn build<F>(&mut self, mut progress: F) -> Result<()>
     where
         F: FnMut(ProgressEvent),
     {
@@ -76,9 +74,10 @@ impl StandardLibraryDocumentationGenerator {
             .get_archive("/toolchain/share/doc/rust/html")?;
 
         // Create the chest contents
+        progress(ProgressEvent::Action("Indexing Rust documentation".into()));
         let mut contents = ChestContents::new(
             "Rust",
-            "rust",
+            &["rs"],
             None,
             &self.version,
             "index.html",
@@ -86,11 +85,37 @@ impl StandardLibraryDocumentationGenerator {
             None,
         );
 
+        // Add initial landing page to the chest
         contents.items.push(ChestItem::Page(Box::new(Page {
-            title: "Rust documentation".into(),
+            title: "Rust Documentation".into(),
             url: "index.html".to_string(),
             contents: Vec::new(),
         })));
+
+        // Add the Rust books to the chest
+        Self::add_book(
+            &chest,
+            &mut contents,
+            "book",
+            "The Rust Programming Language",
+        )?;
+        Self::add_book(
+            &chest,
+            &mut contents,
+            "embedded-book",
+            "The Embedded Rust Book",
+        )?;
+
+        Self::add_book(&chest, &mut contents, "rust-by-example", "Rust By Example")?;
+        Self::add_book(&chest, &mut contents, "rustc", "The rustc Book")?;
+        Self::add_book(&chest, &mut contents, "cargo", "The Cargo Book")?;
+        Self::add_book(&chest, &mut contents, "rustdoc", "The Rustdoc Book")?;
+        Self::add_book(&chest, &mut contents, "clippy", "The Clippy Book")?;
+        Self::add_book(&chest, &mut contents, "error_codes", "rustc error codes")?;
+        Self::add_book(&chest, &mut contents, "reference", "The Reference")?;
+        Self::add_book(&chest, &mut contents, "style-guide", "The Rust Style Guide")?;
+        Self::add_book(&chest, &mut contents, "nomicon", "The Rustonomicon")?;
+        Self::add_book(&chest, &mut contents, "unstable-book", "The Unstable Book")?;
 
         // Patch CSS to remove sidebars and search, as these are provided by the app itself.
         for file in chest.list_dir("static.files")? {
@@ -142,5 +167,128 @@ impl StandardLibraryDocumentationGenerator {
         )?;
 
         Ok(())
+    }
+
+    /// Indexes the contents of a book and adds it to the chest
+    fn add_book(
+        chest: &Chest,
+        contents: &mut ChestContents,
+        path: &str,
+        title: &str,
+    ) -> Result<()> {
+        // Load and parse the HTML of the initial page, which contains a sidebar with all
+        // the other pages referenced.
+        let html_str = String::from_utf8(chest.read(&format!("{}/{}", path, "index.html"))?)?;
+        let html = Html::parse_document(&html_str);
+
+        // Find the sidebar content element
+        let sidebar = html
+            .select(&Self::selector(".sidebar")?)
+            .next()
+            .ok_or_else(|| anyhow!("Could not find sidebar in '{}'", title))?;
+        let sidebar_contents = sidebar
+            .select(&Self::selector("ol")?)
+            .next()
+            .ok_or_else(|| anyhow!("Could not find sidebar contents in '{}'", title))?;
+
+        // Parse the content tree of the book from the sidebar contents
+        let pages = Self::collect_book_pages(path, sidebar_contents)?;
+
+        // Add the pages to the chest
+        contents.items.push(ChestItem::Page(Box::new(Page {
+            title: title.into(),
+            url: format!("{}/index.html", path),
+            contents: pages,
+        })));
+        Ok(())
+    }
+
+    /// Collects the page hierarchy for an element in a book's sidebar
+    fn collect_book_pages(path: &str, element: ElementRef) -> Result<Vec<PageItem>> {
+        let mut result = Vec::new();
+        let mut title: Option<String> = None;
+        let mut url: Option<String> = None;
+        let mut contents = Vec::new();
+
+        // Function for finalizing a pending item into the result list. This is needed because
+        // list items for pages within a chapter are separate items in the element tree.
+        let mut finalize_pending_item =
+            |title: &mut Option<String>, url: &mut Option<String>, contents: &mut Vec<PageItem>| {
+                if let (Some(title_ref), Some(url_ref)) = (&title, &url) {
+                    if contents.is_empty() {
+                        result.push(PageItem::Link(PageLink {
+                            title: title_ref.to_string(),
+                            url: format!("{}/{}", path, url_ref),
+                        }))
+                    } else {
+                        result.push(PageItem::Category(Box::new(PageCategory {
+                            title: title_ref.to_string(),
+                            url: Some(format!("{}/{}", path, url_ref)),
+                            contents: contents.split_off(0),
+                        })))
+                    }
+                    *title = None;
+                    *url = None;
+                }
+            };
+
+        // Traverse through the element tree and collect the page items
+        for item in element.children() {
+            match item.value() {
+                Node::Element(element) => {
+                    if element.name() == "li" {
+                        for sub_element in item.children() {
+                            match sub_element.value() {
+                                Node::Element(element) => match element.name() {
+                                    "a" => {
+                                        if let Some(href) = element.attr("href") {
+                                            // Finalize any pending items that need to be processed
+                                            finalize_pending_item(
+                                                &mut title,
+                                                &mut url,
+                                                &mut contents,
+                                            );
+
+                                            // Grab the URL and title from the element
+                                            url = Some(href.to_string());
+                                            for text in sub_element.children() {
+                                                if let Node::Text(text) = text.value() {
+                                                    title = Some(text.text.trim().to_string());
+                                                }
+                                            }
+                                        }
+                                    }
+                                    "ol" => {
+                                        // Found an ordered list, this is a collection of pages
+                                        // within a chapter.
+                                        contents = Self::collect_book_pages(
+                                            path,
+                                            ElementRef::wrap(sub_element)
+                                                .ok_or_else(|| anyhow!("Expected an element"))?,
+                                        )?;
+                                    }
+                                    _ => (),
+                                },
+                                _ => (),
+                            }
+                        }
+                    }
+                }
+                _ => (),
+            }
+        }
+
+        // Finalize the last item and return the result
+        finalize_pending_item(&mut title, &mut url, &mut contents);
+        Ok(result)
+    }
+
+    /// Wrapper to parse a CSS selector. The error type from `scraper` is incompatible with
+    /// `anyhow` so we must translate it manually.
+    fn selector(path: &str) -> Result<Selector> {
+        match Selector::parse(path) {
+            Ok(selector) => Ok(selector),
+            Err(e) => Err(anyhow!("Could not parse selector '{}': {}", path, e)),
+        }
     }
 }

@@ -30,6 +30,7 @@ interface OptionalItemPath {
     identifier: string,
     chestTag: string,
     chestPath: ChestPath | null,
+    chestPagePath: ChestPath | null,
 }
 
 interface ExtendedItemContents {

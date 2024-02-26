@@ -201,7 +201,7 @@ impl Database {
                 match &items[0].data {
                     IndexedChestItemData::Page(page) => ItemContents {
                         chest_items: Vec::new(),
-                        page_items: page.contents.iter().collect(),
+                        page_items: page.info.contents.iter().collect(),
                         bases: Vec::new(),
                     },
                     IndexedChestItemData::Object(object) => ItemContents {
@@ -223,7 +223,9 @@ impl Database {
                 let mut bases = Vec::new();
                 for item in items {
                     match &item.data {
-                        IndexedChestItemData::Page(page) => page_items.extend(page.contents.iter()),
+                        IndexedChestItemData::Page(page) => {
+                            page_items.extend(page.info.contents.iter())
+                        }
                         IndexedChestItemData::Object(object) => {
                             chest_items.append(&mut item.contents(&chest.contents));
                             bases.extend(object.info.bases.iter().cloned());
@@ -367,6 +369,27 @@ impl Database {
                 }
             }
             _ => None,
+        }
+    }
+
+    /// Gets the path corresponding to the item that a URL is pointing to.
+    pub fn item_for_path(
+        &self,
+        identifier: &str,
+        url: &str,
+        path_hint: Option<&ItemPath>,
+    ) -> Option<ItemPath> {
+        if let Some(chest) = self.chest(identifier) {
+            if let Some(path) = chest.item_for_path(url, path_hint.map(|path| &path.chest_path)) {
+                Some(ItemPath {
+                    identifier: identifier.to_string(),
+                    chest_path: path,
+                })
+            } else {
+                None
+            }
+        } else {
+            None
         }
     }
 

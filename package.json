@@ -11,8 +11,8 @@
     "url": "https://github.com/D0ntPanic/docdelve.git"
   },
   "scripts": {
-    "app:dir": "electron-builder --dir",
-    "app:dist": "electron-builder",
+    "app:dir": "napi build --release --dts docdelve_ffi.d.ts && electron-vite build && electron-builder --dir",
+    "app:dist": "napi build --release --dts docdelve_ffi.d.ts && electron-vite build && electron-builder",
     "build": "napi build --release --dts docdelve_ffi.d.ts && electron-vite build",
     "build:debug": "napi build --dts docdelve_ffi.d.ts && electron-vite build",
     "watch": "tsc -w",
@@ -30,7 +30,7 @@
     "@types/react-dom": "^18.2.18",
     "@vitejs/plugin-react": "^4.2.1",
     "@napi-rs/cli": "^2.18",
-    "electron": "^28.2.1",
+    "electron": "^29.0.1",
     "electron-vite": "^2.0.0",
     "electron-builder": "^24.9.1",
     "react": "^18.2.0",
